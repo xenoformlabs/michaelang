@@ -4,6 +4,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <LOLIN_I2C_BUTTON.h>
 
 #ifdef ESP32
 #include <ESP32Ping.h>
@@ -23,6 +24,7 @@
 #define OLED_RESET 0  // GPIO0
 #define OLED_ADDRESS 0x3C // for the 64x48 display
 Adafruit_SSD1306 display(OLED_RESET);
+I2C_BUTTON button(DEFAULT_I2C_BUTTON_ADDRESS); //I2C Address 0x31
 
 // What to measure and display
 enum MEASURE_MODE { MEASURE_RSSI, MEASURE_HTTP, MEASURE_PING };
@@ -65,6 +67,12 @@ void setup()   {
 
 
 void loop() {
+  if (button.get() == 0) { // Button pressed
+    if (button.BUTTON_B) {
+      nextMode();
+    }
+  }
+
   switch (measureMode) {
     case MEASURE_RSSI:
       measureRSSI();
@@ -79,6 +87,24 @@ void loop() {
       measureHTTP();
       delay(1000);
       break;
+  }
+}
+
+void nextMode() {
+  switch (measureMode) {
+    case MEASURE_RSSI:
+      measureMode = MEASURE_HTTP;
+      break;
+    
+    case MEASURE_HTTP:
+      measureMode = MEASURE_RSSI;
+      break;
+
+    // MEASURE_PING not working
+
+    default:
+      measureMode = MEASURE_RSSI;
+
   }
 }
 
@@ -116,6 +142,7 @@ void measureRSSI() {
   showRSSI(WIFI_SSID, rssi);
 }
 
+// XXX example from library not working
 void measurePing() {
   IPAddress remote = WiFi.gatewayIP();
 //  IPAddress remote = WiFi.localIP();
