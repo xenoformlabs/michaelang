@@ -32,7 +32,7 @@ enum MEASURE_MODE { MEASURE_RSSI, MEASURE_HTTP, MEASURE_PING };
 void showSplashScreen();
 
 // TODO - ping mode is not working
-MEASURE_MODE measureMode = MEASURE_HTTP;
+MEASURE_MODE measureMode = MEASURE_RSSI;
 
 void setup()   {
 
