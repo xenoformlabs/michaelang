@@ -5,6 +5,10 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
+#ifdef ESP32
+#include <ESP32Ping.h>
+#endif
+
 // Put your wifi name and pass here, or define externally
 #ifndef WIFI_SSID
 #define WIFI_SSID "your ssid"
@@ -20,16 +24,25 @@
 #define OLED_ADDRESS 0x3C // for the 64x48 display
 Adafruit_SSD1306 display(OLED_RESET);
 
+// What to measure and display
+enum MEASURE_MODE { MEASURE_RSSI, MEASURE_HTTP, MEASURE_PING };
+
 void showSplashScreen();
 
+// TODO - ping mode is not working
+MEASURE_MODE measureMode = MEASURE_HTTP;
+
 void setup()   {
+
   // Start display
   display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS);
   display.clearDisplay();
 
+  Serial.begin(115200);
+
   showSplashScreen();
 
-  delay(2000);
+  delay(1000);
   display.clearDisplay();
   display.display();
 
@@ -52,8 +65,21 @@ void setup()   {
 
 
 void loop() {
-  long rssi = WiFi.RSSI();
-  showRSSI(WIFI_SSID, rssi);
+  switch (measureMode) {
+    case MEASURE_RSSI:
+      measureRSSI();
+      break;
+
+    case MEASURE_PING:
+      measurePing();
+      delay(1000);
+      break;
+
+    case MEASURE_HTTP:
+      measureHTTP();
+      delay(1000);
+      break;
+  }
 }
 
 void showSplashScreen() {
@@ -83,4 +109,80 @@ void showRSSI(const char* ssid, long rssi) {
   display.setTextSize(2);
   display.println(rssi);
   display.display();
+}
+
+void measureRSSI() {
+  long rssi = WiFi.RSSI();
+  showRSSI(WIFI_SSID, rssi);
+}
+
+void measurePing() {
+  IPAddress remote = WiFi.gatewayIP();
+//  IPAddress remote = WiFi.localIP();
+//  char *remote = "8.8.8.8";
+  display.clearDisplay();
+  display.setCursor(0,0);
+  display.setTextSize(1);
+  display.println("Ping");
+  display.println(remote);
+  display.display();
+
+  if (Ping.ping(remote)) {
+    display.println("Success");
+  } else {
+    display.println("FAIL");
+  }
+
+  display.display();
+}
+
+void measureHTTP() {
+  WiFiClient client;
+  int port = 80;
+  IPAddress host = WiFi.gatewayIP();
+  String url = "/";
+  //const char *host = "www.michaelang.com";
+  //String url = "/xfer/hi.txt";
+  
+  display.clearDisplay();
+  display.display();
+  display.setTextSize(1);
+  display.setCursor(0,0);
+
+  display.println("HTTP");
+  display.println(host);
+  display.display();
+  if (!client.connect(host, port)) {
+    display.println("FAIL");
+    display.display();
+    delay(500);
+    return;
+  } else {
+    display.println("connected");
+    display.display();
+    delay(500);
+  }
+
+  client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+                 "Host: " + host + "\r\n" +
+                 "Connection: close\r\n\r\n");
+    unsigned long timeout = millis();
+    while (client.available() == 0) {
+        if (millis() - timeout > 5000) {
+            display.println(">>> Client Timeout !");
+            client.stop();
+            return;
+        }
+    }
+
+    // Read all the lines of the reply from server and print them to Serial
+    display.clearDisplay();
+    display.display();
+    display.setCursor(0,0);
+    while(client.available()) {
+        String line = client.readStringUntil('\r');
+        display.print(line);
+    }
+    display.display();
+
 }
